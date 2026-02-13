@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     }
 
     const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const serverTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     try {
         // Query all users who have Telegram configured and active reminder schedules
@@ -28,6 +28,7 @@ export async function GET(request: Request) {
                 id: true,
                 name: true,
                 telegramChatId: true,
+                timezone: true,
                 quietStart: true,
                 quietEnd: true,
                 currentStreak: true,
@@ -40,38 +41,53 @@ export async function GET(request: Request) {
         if (users.length === 0) {
             return NextResponse.json({
                 success: true,
-                time: currentTime,
+                time: serverTime,
                 message: 'No users with Telegram reminders configured.',
                 sent: 0,
             });
         }
 
-        // Check if current time is a reasonable reminder time
         const checkInTimes = ['06:00', '08:00', '12:00', '18:00', '20:00', '21:00'];
-        const isCheckInTime = checkInTimes.some(t => {
-            const [tH, tM] = t.split(':').map(Number);
-            const [nH, nM] = currentTime.split(':').map(Number);
-            const diff = Math.abs((tH * 60 + tM) - (nH * 60 + nM));
-            return diff <= 7;
-        });
-
-        if (!isCheckInTime) {
-            return NextResponse.json({
-                success: true,
-                time: currentTime,
-                message: 'Not a check-in time. No reminders sent.',
-                nextCheckIns: checkInTimes,
-            });
-        }
-
         let sent = 0;
         let skipped = 0;
         const errors: string[] = [];
 
         for (const user of users) {
+            // Get user's local time
+            let userTime: string;
+            try {
+                userTime = now.toLocaleTimeString('en-GB', {
+                    timeZone: user.timezone || 'UTC',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+            } catch (e) {
+                // Fallback to UTC if timezone is invalid
+                userTime = now.toLocaleTimeString('en-GB', {
+                    timeZone: 'UTC',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+            }
+
+            // Check if it's a check-in time for this user (within 7 minutes)
+            const isCheckInTime = checkInTimes.some(t => {
+                const [tH, tM] = t.split(':').map(Number);
+                const [uH, uM] = userTime.split(':').map(Number);
+                const diff = Math.abs((tH * 60 + tM) - (uH * 60 + uM));
+                return diff <= 7; // 15-minute cron window matches this
+            });
+
+            if (!isCheckInTime) {
+                skipped++;
+                continue;
+            }
+
             // Skip users in quiet hours
             if (user.quietStart && user.quietEnd) {
-                if (isInQuietHours(currentTime, user.quietStart, user.quietEnd)) {
+                if (isInQuietHours(userTime, user.quietStart, user.quietEnd)) {
                     skipped++;
                     continue;
                 }
@@ -100,7 +116,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json({
             success: true,
-            time: currentTime,
+            serverTime,
             totalUsers: users.length,
             sent,
             skipped,
@@ -110,7 +126,7 @@ export async function GET(request: Request) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to run cron';
         console.error('[Cron]', errorMsg);
         return NextResponse.json(
-            { success: false, time: currentTime, error: errorMsg },
+            { success: false, serverTime, error: errorMsg },
             { status: 500 },
         );
     }
