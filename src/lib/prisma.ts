@@ -15,8 +15,14 @@ const globalForPrisma = globalThis as unknown as {
 
 function createPrismaClient() {
     const connectionString = process.env.DATABASE_URL;
+
+    // In build environments, DATABASE_URL might be missing.
+    // We shouldn't crash here; the app will fail at runtime if it's still missing.
     if (!connectionString) {
-        throw new Error('DATABASE_URL environment variable is not set');
+        if (process.env.NODE_ENV === 'production') {
+            console.warn('⚠️ DATABASE_URL is not set. Prisma Client will not be initialized.');
+        }
+        return undefined;
     }
 
     const pool = new Pool({ connectionString });
@@ -25,7 +31,7 @@ function createPrismaClient() {
     return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+export const prisma = globalForPrisma.prisma ?? createPrismaClient() ?? ({} as any);
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
