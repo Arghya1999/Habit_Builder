@@ -1,0 +1,363 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ===== AUTH =====
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  phone         String?
+  telegramChatId String?
+  timezone      String    @default("UTC")
+  
+  // Gamification
+  xp            Int       @default(0)
+  level         Int       @default(1)
+  currentStreak Int       @default(0)
+  bestStreak    Int       @default(0)
+  
+  // Subscription
+  plan          Plan      @default(FREE)
+
+  // Preferences
+  reminderLevel ReminderLevel @default(PUSH)
+  quietStart    String?       @default("22:00")
+  quietEnd      String?       @default("07:00")
+  darkMode      Boolean       @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  accounts  Account[]
+  sessions  Session[]
+  goals     Goal[]
+  tasks     Task[]
+  habits    Habit[]
+  routines  Routine[]
+  journals  JournalEntry[]
+  badges    UserBadge[]
+  reminders ReminderSchedule[]
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ===== GOALS =====
+
+model Goal {
+  id           String     @id @default(cuid())
+  userId       String
+  title        String
+  description  String?
+  category     String     @default("Personal")
+  durationDays Int
+  startDate    DateTime
+  endDate      DateTime
+  progress     Float      @default(0)
+  status       GoalStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  milestones Milestone[]
+  tasks      Task[]
+  habits     Habit[]
+
+  @@index([userId])
+  @@map("goals")
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  goalId      String
+  title       String
+  targetDay   Int
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("milestones")
+}
+
+// ===== TASKS =====
+
+model Task {
+  id          String       @id @default(cuid())
+  userId      String
+  goalId      String?
+  parentId    String?
+  title       String
+  description String?
+  priority    Priority     @default(P3)
+  dueDate     DateTime?
+  completed   Boolean      @default(false)
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal     Goal?  @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  parent   Task?  @relation("Subtasks", fields: [parentId], references: [id])
+  subtasks Task[] @relation("Subtasks")
+
+  @@index([userId])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+// ===== HABITS =====
+
+model Habit {
+  id          String  @id @default(cuid())
+  userId      String
+  goalId      String?
+  name        String
+  icon        String  @default("⭐")
+  color       String  @default("#6C5CE7")
+  frequency   String  @default("daily") // daily, weekdays, custom
+  
+  currentStreak Int   @default(0)
+  bestStreak    Int   @default(0)
+  totalDone     Int   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal  Goal?         @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  logs  HabitLog[]
+
+  @@index([userId])
+  @@map("habits")
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  date      DateTime @db.Date
+  completed Boolean  @default(true)
+  note      String?
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@map("habit_logs")
+}
+
+// ===== ROUTINES =====
+
+model Routine {
+  id        String    @id @default(cuid())
+  userId    String
+  name      String
+  icon      String    @default("⏰")
+  timeOfDay TimeOfDay @default(MORNING)
+  adherence Float     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps RoutineStep[]
+  logs  RoutineLog[]
+
+  @@index([userId])
+  @@map("routines")
+}
+
+model RoutineStep {
+  id        String @id @default(cuid())
+  routineId String
+  title     String
+  duration  Int    @default(0) // minutes
+  order     Int    @default(0)
+
+  routine Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@map("routine_steps")
+}
+
+model RoutineLog {
+  id             String   @id @default(cuid())
+  routineId      String
+  date           DateTime @db.Date
+  stepsCompleted Int      @default(0)
+  totalSteps     Int      @default(0)
+
+  routine Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@unique([routineId, date])
+  @@map("routine_logs")
+}
+
+// ===== JOURNAL =====
+
+model JournalEntry {
+  id        String @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  mood      Int?     // 1-5
+  energy    Int?     // 1-5
+  summary   String?  @db.Text
+  gratitude String[] // array of gratitude items
+  aiNotes   String?  @db.Text
+  productivityScore Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages JournalMessage[]
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@map("journal_entries")
+}
+
+model JournalMessage {
+  id       String @id @default(cuid())
+  entryId  String
+  role     String // 'ai' or 'user'
+  content  String @db.Text
+
+  createdAt DateTime @default(now())
+
+  entry JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@map("journal_messages")
+}
+
+// ===== GAMIFICATION =====
+
+model Badge {
+  id          String @id @default(cuid())
+  name        String @unique
+  icon        String
+  description String
+  requirement String
+
+  users UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+// ===== ENUMS =====
+
+enum Plan {
+  FREE
+  PRO
+  PREMIUM
+}
+
+enum ReminderLevel {
+  PUSH
+  TELEGRAM
+  ESCALATING
+}
+
+// ===== REMINDER SCHEDULES =====
+
+model ReminderSchedule {
+  id          String   @id @default(cuid())
+  userId      String
+  label       String
+  message     String?  @db.Text
+  triggerType String   @default("time")  // time, deadline, event
+  time        String                     // "06:00", "2 hours before", etc.
+  channels    String[] @default(["push"]) // ["push", "telegram"]
+  enabled     Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("reminder_schedules")
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  ABANDONED
+}
+
+enum Priority {
+  P1
+  P2
+  P3
+  P4
+}
+
+enum TimeOfDay {
+  MORNING
+  AFTERNOON
+  EVENING
+}
