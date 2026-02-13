@@ -73,25 +73,42 @@ export async function POST(request: Request) {
 
             switch (command) {
                 case '/start':
-                    response = getStartMessage(firstName, chatId);
-                    if (!user) {
-                        // Auto-register: create user or update existing
+                    const payload = text.split(' ')[1]; // Get payload after /start
+
+                    if (payload && payload.length > 10) { // Simple check if might be an ID
                         try {
-                            const existing = await prisma.user.findFirst({
-                                where: { telegramChatId: String(chatId) },
+                            // Try to link existing user with this ID
+                            const userToLink = await prisma.user.findUnique({
+                                where: { id: payload }
                             });
-                            if (!existing) {
-                                await prisma.user.create({
-                                    data: {
-                                        email: `telegram_${chatId}@routineforge.app`,
-                                        name: firstName,
-                                        telegramChatId: String(chatId),
-                                        reminderLevel: 'TELEGRAM',
-                                    },
+
+                            if (userToLink) {
+                                await prisma.user.update({
+                                    where: { id: payload },
+                                    data: { telegramChatId: String(chatId) }
                                 });
+                                response = `✅ <b>Success!</b>\n\nYour Telegram is now connected to <b>${userToLink.name || 'RoutineForge'}</b>.\n\nI'll send you reminders here. You can also chat with me for AI coaching!`;
+                                user = userToLink; // Update local user variable for context
+                            } else {
+                                response = getStartMessage(firstName, chatId) + '\n\n⚠️ <i>Invalid connection link. Please try connecting from the Settings page again.</i>';
                             }
-                        } catch {
-                            // User creation might fail if DB not set up — that's okay
+                        } catch (e) {
+                            console.error("Linking error:", e);
+                            response = "❌ An error occurred while linking your account.";
+                        }
+                    } else {
+                        response = getStartMessage(firstName, chatId);
+                        if (!user) {
+                            // Auto-register logic (existing fallback)
+                            try {
+                                const existing = await prisma.user.findFirst({
+                                    where: { telegramChatId: String(chatId) },
+                                });
+                                if (!existing) {
+                                    // Make new placeholder user
+                                    /* await prisma.user.create(...) */ // Skipping auto-create on generic start to encourage web-linking
+                                }
+                            } catch { }
                         }
                     }
                     break;

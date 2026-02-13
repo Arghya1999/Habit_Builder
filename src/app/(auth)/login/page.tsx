@@ -2,6 +2,7 @@
 import '../auth.css';
 import { useState } from 'react';
 import Link from 'next/link';
+import { loginWithGoogle } from '@/app/actions/auth';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -91,9 +92,11 @@ export default function LoginPage() {
                     <div className="auth-divider">or continue with</div>
 
                     <div className="auth-social-grid">
-                        <button className="auth-social-btn">
-                            <span>🔵</span> Google
-                        </button>
+                        <form action={loginWithGoogle}>
+                            <button className="auth-social-btn" type="submit">
+                                <span>🔵</span> Google
+                            </button>
+                        </form>
                         <button className="auth-social-btn">
                             <span>⚫</span> GitHub
                         </button>

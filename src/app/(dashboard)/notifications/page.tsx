@@ -12,16 +12,7 @@ interface Notification {
     actionUrl?: string;
 }
 
-const mockNotifications: Notification[] = [
-    { id: '1', type: 'reminder', title: 'Task Reminder', message: 'You haven\'t completed "Complete React module - Section 5" yet. It\'s a P1 task!', time: '5 min ago', read: false, icon: '⏰', actionUrl: '/tasks' },
-    { id: '2', type: 'streak', title: 'Streak at Risk! 🔥', message: 'You haven\'t logged your habits today. Complete them to keep your 12-day streak alive!', time: '1 hour ago', read: false, icon: '🔥', actionUrl: '/habits' },
-    { id: '3', type: 'achievement', title: 'Badge Earned! 🏆', message: 'You earned the "Perfect Week" badge for completing all habits 7 days in a row!', time: '3 hours ago', read: false, icon: '🏆' },
-    { id: '4', type: 'social', title: 'Partner Update', message: 'Sarah K. completed their daily goal. They\'re on a 15-day streak! Keep up!', time: '5 hours ago', read: true, icon: '👥' },
-    { id: '5', type: 'system', title: 'Daily Review Time', message: 'It\'s 9 PM — time for your daily journal review with AI coach.', time: '6 hours ago', read: true, icon: '📝', actionUrl: '/journal' },
-    { id: '6', type: 'reminder', title: 'Routine Reminder', message: 'Your "Evening Wind-Down" routine starts in 15 minutes!', time: 'Yesterday', read: true, icon: '🌙', actionUrl: '/routines' },
-    { id: '7', type: 'achievement', title: 'Level Up! ⚡', message: 'Congratulations! You\'ve reached Level 5 with 2,450 XP!', time: 'Yesterday', read: true, icon: '⚡' },
-    { id: '8', type: 'system', title: 'Weekly Report Ready', message: 'Your weekly analytics report is ready. Check your productivity trends!', time: '2 days ago', read: true, icon: '📊', actionUrl: '/analytics' },
-];
+const mockNotifications: Notification[] = [];
 
 interface ReminderSchedule {
     id: string;
@@ -32,14 +23,7 @@ interface ReminderSchedule {
     enabled: boolean;
 }
 
-const mockSchedules: ReminderSchedule[] = [
-    { id: '1', label: 'Morning Routine Start', triggerType: 'time', time: '06:00 AM', channels: ['push', 'telegram'], enabled: true },
-    { id: '2', label: 'P1 Task Deadline', triggerType: 'deadline', time: '2 hours before', channels: ['push', 'telegram'], enabled: true },
-    { id: '3', label: 'Habit Check-in', triggerType: 'time', time: '08:00 PM', channels: ['push'], enabled: true },
-    { id: '4', label: 'Daily Journal Review', triggerType: 'time', time: '09:00 PM', channels: ['push', 'telegram'], enabled: true },
-    { id: '5', label: 'Streak Protection Alert', triggerType: 'event', time: 'When streak at risk', channels: ['push', 'telegram'], enabled: true },
-    { id: '6', label: 'Evening Routine Start', triggerType: 'time', time: '09:30 PM', channels: ['push'], enabled: false },
-];
+const mockSchedules: ReminderSchedule[] = [];
 
 const typeColors: Record<string, string> = {
     reminder: 'var(--warning)',

@@ -1,128 +1,45 @@
-'use client';
-import './dashboard.css';
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
-import Link from 'next/link';
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import DashboardLayout from "./dashboard-layout";
+import { redirect } from "next/navigation";
 
-const navItems = [
-    {
-        section: 'Main', items: [
-            { href: '/dashboard', icon: '📊', label: 'Dashboard' },
-            { href: '/dashboard/goals', icon: '🎯', label: 'Goals', badge: '3' },
-            { href: '/dashboard/tasks', icon: '✅', label: 'Tasks', badge: '5' },
-        ]
-    },
-    {
-        section: 'Tracking', items: [
-            { href: '/dashboard/habits', icon: '🔥', label: 'Habits' },
-            { href: '/dashboard/routines', icon: '⏰', label: 'Routines' },
-            { href: '/dashboard/journal', icon: '📝', label: 'Journal' },
-        ]
-    },
-    {
-        section: 'Social', items: [
-            { href: '/dashboard/community', icon: '👥', label: 'Community' },
-            { href: '/dashboard/leaderboard', icon: '🏆', label: 'Leaderboard' },
-        ]
-    },
-    {
-        section: 'More', items: [
-            { href: '/dashboard/analytics', icon: '📈', label: 'Analytics' },
-            { href: '/dashboard/notifications', icon: '🔔', label: 'Notifications', badge: '3' },
-            { href: '/dashboard/billing', icon: '💳', label: 'Billing' },
-            { href: '/dashboard/settings', icon: '⚙️', label: 'Settings' },
-        ]
-    },
-];
+export default async function Layout({ children }: { children: React.ReactNode }) {
+    const session = await auth();
 
-export default function DashboardLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-    const pathname = usePathname();
+    if (!session?.user?.email) {
+        redirect("/login");
+    }
 
-    const currentPage = navItems
-        .flatMap(s => s.items)
-        .find(item => pathname === item.href)?.label || 'Dashboard';
+    const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: {
+            name: true,
+            email: true,
+            image: true,
+            level: true,
+            xp: true,
+            currentStreak: true,
+        }
+    });
 
-    return (
-        <div className="dashboard-layout">
-            {/* Sidebar Overlay */}
-            <div
-                className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`}
-                onClick={() => setSidebarOpen(false)}
-            />
+    if (!user) {
+        redirect("/login");
+    }
 
-            {/* Sidebar */}
-            <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-                <div className="sidebar-header">
-                    <Link href="/" className="sidebar-logo">
-                        <div className="sidebar-logo-icon">⚡</div>
-                        <span className="sidebar-logo-text">RoutineForge</span>
-                    </Link>
-                </div>
+    // Calculate XP progress (example: 1000 XP per level)
+    const xpForCurrentLevel = (user.level - 1) * 1000;
+    const xpInThisLevel = user.xp - xpForCurrentLevel;
+    const xpProgress = Math.min(100, Math.max(0, (xpInThisLevel / 1000) * 100));
 
-                <nav className="sidebar-nav">
-                    {navItems.map((section, si) => (
-                        <div key={si} className="sidebar-section">
-                            <div className="sidebar-section-label">{section.section}</div>
-                            {section.items.map((item, ii) => (
-                                <Link
-                                    key={ii}
-                                    href={item.href}
-                                    className={`sidebar-link ${pathname === item.href ? 'active' : ''}`}
-                                    onClick={() => setSidebarOpen(false)}
-                                >
-                                    <span className="sidebar-link-icon">{item.icon}</span>
-                                    {item.label}
-                                    {item.badge && (
-                                        <span className="sidebar-link-badge">{item.badge}</span>
-                                    )}
-                                </Link>
-                            ))}
-                        </div>
-                    ))}
-                </nav>
+    const userData = {
+        name: user.name || "User",
+        email: user.email,
+        image: user.image || undefined,
+        level: user.level,
+        xp: user.xp,
+        streak: user.currentStreak,
+        xpProgress,
+    };
 
-                <div className="sidebar-user">
-                    <div className="sidebar-avatar">U</div>
-                    <div className="sidebar-user-info">
-                        <div className="sidebar-user-name">User</div>
-                        <div className="sidebar-user-level">Level 5 · 2,450 XP</div>
-                        <div className="sidebar-xp-bar">
-                            <div className="sidebar-xp-fill" style={{ width: '65%' }} />
-                        </div>
-                    </div>
-                </div>
-            </aside>
-
-            {/* Main Content */}
-            <main className="dashboard-main">
-                <div className="topbar">
-                    <div className="topbar-left">
-                        <button
-                            className="topbar-mobile-toggle"
-                            onClick={() => setSidebarOpen(!sidebarOpen)}
-                        >
-                            ☰
-                        </button>
-                        <h2 className="topbar-title">{currentPage}</h2>
-                    </div>
-                    <div className="topbar-right">
-                        <div className="topbar-streak">🔥 12 day streak</div>
-                        <div className="topbar-xp">⚡ 2,450 XP</div>
-                        <button className="topbar-notif">
-                            🔔
-                            <span className="topbar-notif-dot" />
-                        </button>
-                    </div>
-                </div>
-                <div className="dashboard-content">
-                    {children}
-                </div>
-            </main>
-        </div>
-    );
+    return <DashboardLayout userData={userData}>{children}</DashboardLayout>;
 }

@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import QRCode from 'react-qr-code';
 
 interface PlanFeature {
     name: string;
@@ -80,6 +81,62 @@ export default function BillingPage() {
     };
 
     const currencySymbol = currency === 'INR' ? '₹' : '$';
+
+    // Manual Payment State
+    const [showManualPay, setShowManualPay] = useState(false);
+    const [selectedPlanForPay, setSelectedPlanForPay] = useState<typeof plans[0] | null>(null);
+    const [transactionId, setTransactionId] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [manualSuccess, setManualSuccess] = useState(false);
+
+    // Hardcoded UPI ID from user
+    const UPI_ID = "panarghya2015-1@okicici";
+    const UPI_NAME = "Arghya Pan";
+
+    const handleUpgradeClick = (plan: typeof plans[0]) => {
+        if (currency === 'INR') {
+            setSelectedPlanForPay(plan);
+            setShowManualPay(true);
+        } else {
+            // Stripe flow (placeholder)
+            alert("Stripe integration coming soon for USD.");
+        }
+    };
+
+    const handleManualSubmit = async () => {
+        if (!transactionId || !selectedPlanForPay) return;
+        setIsSubmitting(true);
+
+        try {
+            const res = await fetch('/api/billing/manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    planId: selectedPlanForPay.id,
+                    billingCycle: billing,
+                    transactionId,
+                    upiId: UPI_ID,
+                    amount: billing === 'monthly' ? selectedPlanForPay.priceINR : selectedPlanForPay.yearlyPriceINR
+                })
+            });
+
+            if (res.ok) {
+                setManualSuccess(true);
+                setTimeout(() => {
+                    setShowManualPay(false);
+                    setManualSuccess(false);
+                    setTransactionId('');
+                }, 3000);
+            } else {
+                alert("Failed to submit. Please try again.");
+            }
+        } catch (e) {
+            alert("Error submitting payment.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
 
     return (
         <>
@@ -193,6 +250,7 @@ export default function BillingPage() {
                                 className={`btn ${isCurrent ? 'btn-secondary' : plan.popular ? 'btn-primary' : 'btn-secondary'} btn-lg`}
                                 style={{ width: '100%', marginBottom: 'var(--space-4)' }}
                                 disabled={isCurrent}
+                                onClick={() => handleUpgradeClick(plan)}
                             >
                                 {isCurrent ? 'Current Plan' : price === 0 ? 'Get Started' : 'Upgrade Now'}
                             </button>
@@ -352,6 +410,73 @@ export default function BillingPage() {
                     <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginTop: 'var(--space-3)' }}>
                         18% GST applies to all plans. GST invoice will be emailed after each payment. Input GSTIN to claim GST credit.
                     </p>
+                </div>
+            )}
+            {/* Manual Payment Modal */}
+            {showManualPay && selectedPlanForPay && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+                }}>
+                    <div className="dashboard-card" style={{ width: '90%', maxWidth: '400px', position: 'relative' }}>
+                        <button
+                            onClick={() => setShowManualPay(false)}
+                            style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                        >✕</button>
+
+                        <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
+                            <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 700 }}>Upgrade to {selectedPlanForPay.name}</h3>
+                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                                Pay <b>₹{billing === 'monthly' ? selectedPlanForPay.priceINR : selectedPlanForPay.yearlyPriceINR}</b> via UPI
+                            </p>
+                        </div>
+
+                        {!manualSuccess ? (
+                            <>
+                                <div style={{ background: 'white', padding: '16px', borderRadius: '12px', width: 'fit-content', margin: '0 auto var(--space-4)' }}>
+                                    <QRCode
+                                        value={`upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(UPI_NAME)}&am=${billing === 'monthly' ? selectedPlanForPay.priceINR : selectedPlanForPay.yearlyPriceINR}&cu=INR`}
+                                        size={200}
+                                    />
+                                </div>
+
+                                <div style={{ fontSize: 'var(--text-sm)', textAlign: 'center', marginBottom: 'var(--space-4)', color: 'var(--text-secondary)' }}>
+                                    Scan with GPay, PhonePe, or Paytm.<br />
+                                    <strong>UPI ID:</strong> {UPI_ID}
+                                </div>
+
+                                <div style={{ marginBottom: 'var(--space-4)' }}>
+                                    <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', display: 'block', marginBottom: '4px' }}>
+                                        Enter Transaction ID (UTR)
+                                    </label>
+                                    <input
+                                        className="input"
+                                        placeholder="e.g. 123456789012"
+                                        value={transactionId}
+                                        onChange={e => setTransactionId(e.target.value)}
+                                    />
+                                </div>
+
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ width: '100%' }}
+                                    onClick={handleManualSubmit}
+                                    disabled={!transactionId || isSubmitting}
+                                >
+                                    {isSubmitting ? 'Verifying...' : 'Submit Payment'}
+                                </button>
+                            </>
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: 'var(--space-4)' }}>
+                                <div style={{ fontSize: '48px', marginBottom: 'var(--space-3)' }}>🎉</div>
+                                <h4 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, marginBottom: 'var(--space-2)' }}>Payment Submitted!</h4>
+                                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                                    We have received your transaction ID. Your plan will be active shortly after admin verification.
+                                </p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </>
