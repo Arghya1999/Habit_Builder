@@ -3,8 +3,8 @@ import { sendTelegramReminder } from '@/lib/telegram';
 import { generateMotivation } from '@/lib/ai';
 import prisma from '@/lib/prisma';
 
-// GET /api/reminders/cron — Vercel Cron handler
-// Configured in vercel.json: { "crons": [{ "path": "/api/reminders/cron", "schedule": "*/15 * * * *" }] }
+// GET /api/reminders/cron — Cron handler (Called by GitHub Actions every 30 mins)
+// Configured in .github/workflows/cron.yml
 export async function GET(request: Request) {
     // Verify cron secret in production
     const authHeader = request.headers.get('authorization');
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
                 const [tH, tM] = t.split(':').map(Number);
                 const [uH, uM] = userTime.split(':').map(Number);
                 const diff = Math.abs((tH * 60 + tM) - (uH * 60 + uM));
-                return diff <= 7; // 15-minute cron window matches this
+                return diff <= 7; // 15-minute window (+/- 7 mins) still works for 30-min cron
             });
 
             if (!isCheckInTime) {
