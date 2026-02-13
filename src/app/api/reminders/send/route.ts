@@ -5,6 +5,8 @@ import prisma from '@/lib/prisma';
 type Channel = 'push' | 'telegram' | 'escalating';
 
 // POST /api/reminders/send — Unified reminder dispatcher
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
