@@ -5,6 +5,8 @@ import prisma from '@/lib/prisma';
 
 // GET /api/reminders/cron — Cron handler (Called by GitHub Actions every 30 mins)
 // Configured in .github/workflows/cron.yml
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
     // Verify cron secret in production
     const authHeader = request.headers.get('authorization');
