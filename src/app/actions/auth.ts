@@ -1,11 +1,20 @@
-'use server';
-
 import { signIn } from "@/auth";
+import { AuthError } from "next-auth";
 
-export async function loginWithGoogle() {
-    await signIn("google", { redirectTo: "/dashboard" });
-}
 
-export async function loginWithGithub() {
-    await signIn("github", { redirectTo: "/dashboard" });
+
+export async function loginWithCredentials(formData: FormData) {
+    try {
+        await signIn("credentials", formData);
+    } catch (error) {
+        if (error instanceof AuthError) {
+            switch (error.type) {
+                case "CredentialsSignin":
+                    return "Invalid credentials.";
+                default:
+                    return "Something went wrong.";
+            }
+        }
+        throw error;
+    }
 }

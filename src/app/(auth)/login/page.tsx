@@ -11,7 +11,7 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!email || !password) {
             setError('Please fill in all fields');
@@ -19,10 +19,20 @@ export default function LoginPage() {
         }
         setLoading(true);
         setError('');
-        // Simulate login — redirect to dashboard
-        setTimeout(() => {
-            window.location.href = '/dashboard';
-        }, 1000);
+
+        const formData = new FormData();
+        formData.append('email', email);
+        formData.append('password', password);
+
+        // We use the server action for login
+        // Since it redirects on success, we only handle errors here if it returns
+        import('@/app/actions/auth').then(async ({ loginWithCredentials }) => {
+            const result = await loginWithCredentials(formData);
+            if (result) {
+                setError(result);
+                setLoading(false);
+            }
+        });
     };
 
     return (
@@ -89,18 +99,7 @@ export default function LoginPage() {
                         </button>
                     </form>
 
-                    <div className="auth-divider">or continue with</div>
 
-                    <div className="auth-social-grid">
-                        <form action={loginWithGoogle}>
-                            <button className="auth-social-btn" type="submit">
-                                <span>🔵</span> Google
-                            </button>
-                        </form>
-                        <button className="auth-social-btn">
-                            <span>⚫</span> GitHub
-                        </button>
-                    </div>
 
                     <div className="auth-footer">
                         Don&apos;t have an account? <Link href="/signup">Sign up free →</Link>

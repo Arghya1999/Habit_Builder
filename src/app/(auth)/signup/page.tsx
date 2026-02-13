@@ -27,7 +27,7 @@ export default function SignupPage() {
 
     const strength = useMemo(() => getPasswordStrength(password), [password]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name || !email || !password) {
             setError('Please fill in all fields');
@@ -43,10 +43,26 @@ export default function SignupPage() {
         }
         setLoading(true);
         setError('');
-        // Simulate signup
-        setTimeout(() => {
-            window.location.href = '/dashboard';
-        }, 1000);
+
+        try {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password }),
+            });
+
+            if (res.ok) {
+                // Success! Redirect to login
+                window.location.href = '/login?registered=true';
+            } else {
+                const data = await res.json();
+                setError(data.error || 'Registration failed');
+                setLoading(false);
+            }
+        } catch (err) {
+            setError('Something went wrong. Please try again.');
+            setLoading(false);
+        }
     };
 
     const strengthBarClass = (index: number) => {
@@ -155,16 +171,7 @@ export default function SignupPage() {
                         </button>
                     </form>
 
-                    <div className="auth-divider">or continue with</div>
 
-                    <div className="auth-social-grid">
-                        <button className="auth-social-btn">
-                            <span>🔵</span> Google
-                        </button>
-                        <button className="auth-social-btn">
-                            <span>⚫</span> GitHub
-                        </button>
-                    </div>
 
                     <div className="auth-footer">
                         Already have an account? <Link href="/login">Sign in →</Link>
